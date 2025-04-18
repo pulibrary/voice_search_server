@@ -4,7 +4,9 @@
 1. In your browser, go to http://localhost:7020/test_client.html
 
 ### Todo
+* figure out how to handle webm (it seems that kalosm likes wav)
+* get a bunch of webm data and write tests for them.  They should be more in the 5-10 second range.
 * add a rust test for the case when a binary blob is sent via the websocket
 * remove the ability to send text over the websocket
-* transcribe the binary blob!
+* transcribe the binary blob that is sent over the websocket
 

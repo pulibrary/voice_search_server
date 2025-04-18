@@ -7,7 +7,10 @@ edition = "2024"
 actix-codec = "0.5.2"
 actix-web = "4"
 actix-ws = "0.3.0"
+anyhow = "1.0.97"
 futures-util = "0.3.31"
+kalosm = { version = "0.4.0", features = ["sound", "metal"] }
+tokio = { version = "1.44.2", features = ["macros"] }
 
 [dev-dependencies]
 actix-http = "3.10.0"
