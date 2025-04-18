@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <canvas></canvas>
+        <div id="status">Recording</div>
+        <div id="received">Received messages: </div>
+        <div id="errors"></div>
+    </body>
+    <script>
+const canvas = document.querySelector("canvas");
+const stream = canvas.captureStream(25);
+const recordedChunks = [];
+
+const options = { mimeType: "video/webm" };
+const mediaRecorder = new MediaRecorder(stream, options);
+
+setTimeout(() => {
+  document.getElementById('status').textContent = 'Done recording';
+  mediaRecorder.stop();
+}, 6_000);
+
+function connect() {
+    const voiceSearchServer = new WebSocket('ws://localhost:7025');
+    voiceSearchServer.addEventListener('error', () => {
+        document.getElementById('errors').textContent = 'Error: could not connect to the websocket.  Did you run cargo run?';
+        return;
+    });
+    voiceSearchServer.addEventListener('open', () => {
+        mediaRecorder.ondataavailable = (event) => {
+            const data = [];
+            data.push(event.data);
+            voiceSearchServer.send(new Blob(data, {
+                type: "video/webm",
+            }))
+        };
+        mediaRecorder.start();
+    });
+    voiceSearchServer.addEventListener('message', (event) => {
+        document.getElementById('received').textContent += ` ${event.data} `;
+    })
+}
+connect();
+    </script>
+</html>

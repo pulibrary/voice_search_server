@@ -1,0 +1,10 @@
+### Basic client for testing
+
+1. Run: `ruby -run -e httpd . -p 7020`
+1. In your browser, go to http://localhost:7020/test_client.html
+
+### Todo
+* add a rust test for the case when a binary blob is sent via the websocket
+* remove the ability to send text over the websocket
+* transcribe the binary blob!
+
