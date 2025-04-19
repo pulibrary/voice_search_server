@@ -14,7 +14,7 @@ const stopRecordButton = document.getElementById('s');
 startMicrophoneButton.addEventListener("click", async () => {
   // Prompt the user to use their microphone.
   stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  recorder = new MediaRecorder(stream, {mimeType: 'audio/webm'});
+  recorder = new MediaRecorder(stream, {mimeType: 'audio/webm; codecs=vorbis'});
 });
 
 stopMicrophoneButton.addEventListener("click", () => {

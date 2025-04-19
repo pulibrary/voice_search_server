@@ -1,6 +1,7 @@
 use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, rt, web};
 use actix_ws::AggregatedMessage;
 use futures_util::StreamExt as _;
+mod audio;
 
 async fn websocket_server(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
@@ -41,7 +42,7 @@ mod tests {
     use actix_http::ws;
     use actix_test;
     use actix_web::{App, web::Bytes};
-    use futures_util::{SinkExt as _};
+    use futures_util::SinkExt as _;
 
     #[actix_web::test]
     async fn test_websocket_can_send_plaintext_message() {
