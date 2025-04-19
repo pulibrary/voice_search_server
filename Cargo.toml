@@ -10,6 +10,8 @@ actix-ws = "0.3.0"
 anyhow = "1.0.97"
 futures-util = "0.3.31"
 kalosm = { version = "0.4.0", features = ["sound", "metal"] }
+rodio = {version = "0.20.1", features = ["symphonia"] }
+symphonia = "0.5.4"
 tokio = { version = "1.44.2", features = ["macros"] }
 
 [dev-dependencies]

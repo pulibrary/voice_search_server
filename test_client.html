@@ -11,7 +11,7 @@ const canvas = document.querySelector("canvas");
 const stream = canvas.captureStream(25);
 const recordedChunks = [];
 
-const options = { mimeType: "video/webm" };
+const options = { mimeType: "audio/webm" };
 const mediaRecorder = new MediaRecorder(stream, options);
 
 setTimeout(() => {
@@ -30,7 +30,7 @@ function connect() {
             const data = [];
             data.push(event.data);
             voiceSearchServer.send(new Blob(data, {
-                type: "video/webm",
+                type: "audio/webm",
             }))
         };
         mediaRecorder.start();
