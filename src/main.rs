@@ -1,7 +1,6 @@
 use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, rt, web};
 use actix_ws::AggregatedMessage;
 use futures_util::StreamExt as _;
-mod transcribe;
 
 async fn websocket_server(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
