@@ -9,7 +9,7 @@
 1. In your browser, go to http://localhost:7020/test_client.html
 
 ### Todo
-* Need to support webm+opus, rather than webm+vorbis
+* Add a test for mono and a test for stereo
 * Get some realistic webm files with vorbis encoding that might come from a browser.  Make sure they actually pass the test :-/
 * Use candle's pcm to MEL
 * get a bunch of webm data and write tests for them.  They should be more in the 5-10 second range.

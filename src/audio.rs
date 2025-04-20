@@ -1,4 +1,12 @@
-use std::any;
+// This module is responsible for decoding Webm audio into
+// a vector of PCM samples (see https://en.wikipedia.org/wiki/Pulse-code_modulation)
+//
+// Webm uses a Matroska (aka MKV) format and a Vorbis or OPUS encoding.
+// This code supports only the OPUS encoding, since that is the encoding
+// that Firefox and Chromium use.
+//
+// Each sample is expressed in a 32 bit float
+// This can handle Mono or Stereo, which is kinda cool!
 
 use anyhow::{Result, anyhow};
 use opus::{Channels, Decoder};
@@ -11,20 +19,6 @@ use symphonia::{
     default::formats::MkvReader,
 };
 
-// This module is responsible for decoding Webm audio into
-// a vector of PCM samples (see https://en.wikipedia.org/wiki/Pulse-code_modulation)
-//
-// Webm uses a Matroska (aka MKV) format and a Vorbis or OPUS encoding.
-// This code supports only the OPUS encoding, since that is the encoding
-// that Firefox and Chromium use.
-//
-// Each sample is expressed in a 32 bit float
-// The sample rate is taken from the provided audio
-//   Note: MDN says that for the MediaRecorder API: "If bits per second values are not specified for[...] audio,
-//   [...] the audio default is adaptive, depending upon the sample rate and the number of channels."
-//   See: https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/MediaRecorder#audiobitspersecond
-// The bitrate is 32 * the sample rate
-
 struct Track {
     sample_rate: u32,
     channels: Channels,
@@ -32,29 +26,38 @@ struct Track {
     reader: MkvReader,
 }
 
+impl Track {
+    pub fn decode(&mut self) -> Result<(Vec<f32>, u32)> {
+        // Sample rate must be 8, 12, 16, 24, or 48 kHz.  The libopus documentation recommends 48.
+        // Note that the sample rate of a file from the browser may not be one of the rates supported
+        // by libopus.  When using the browser's MediaRecorder API, you can pass in a custom sample
+        // rate, and the default rate "is adaptive, depending upon the sample rate and the number of channels."
+        // See:
+        //  * https://opus-codec.org/docs/opus_api-1.5.pdf
+        //  * https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/MediaRecorder#audiobitspersecond
+        let mut decoder = Decoder::new(48_000, self.channels).unwrap();
+
+        let mut pcm_data = Vec::new();
+        while let Ok(packet) = self.reader.next_packet() {
+            while !self.reader.metadata().is_latest() {
+                self.reader.metadata().pop();
+            }
+            if packet.track_id() != self.id {
+                continue;
+            }
+            let num_samples = decoder.get_nb_samples(packet.buf())?;
+            let mut decoded = vec![0.0; num_samples * self.channels as usize];
+            let _ = decoder.decode_float(packet.buf(), &mut decoded, false);
+            pcm_data.append(&mut decoded);
+        }
+
+        Ok((pcm_data, self.sample_rate))
+    }
+}
+
 pub fn pcm_decode(original: impl MediaSource + 'static) -> Result<(Vec<f32>, u32)> {
     let mut track = demux(original)?;
-    // Sample rate must be 8000, 12000, 16000, 24000, or 48000.
-    let mut decoder = Decoder::new(48_000, track.channels).unwrap();
-
-    let mut pcm_data = Vec::new();
-    while let Ok(packet) = track.reader.next_packet() {
-        // Consume any new metadata that has been read since the last packet.
-        while !track.reader.metadata().is_latest() {
-            track.reader.metadata().pop();
-        }
-
-        // If the packet does not belong to the selected track, skip over it.
-        if packet.track_id() != track.id {
-            continue;
-        }
-        let num_samples = decoder.get_nb_samples(packet.buf())?;
-        let mut decoded = vec![0.0; num_samples * 2];
-        let res = decoder.decode_float(packet.buf(), &mut decoded, false);
-        pcm_data.append(&mut decoded);
-    }
-
-    Ok((pcm_data, track.sample_rate))
+    track.decode()
 }
 
 fn demux(original: impl MediaSource + 'static) -> Result<Track> {
