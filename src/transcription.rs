@@ -15,7 +15,11 @@ use rand::distr::weighted::WeightedIndex;
 use rand::{SeedableRng, distr::Distribution};
 use tokenizers::Tokenizer;
 
-pub fn transcribe(features: Vec<f32>, files: WhisperFiles, sender: &mut Sender<String>) -> Result<String, anyhow::Error> {
+pub fn transcribe(
+    features: Vec<f32>,
+    files: WhisperFiles,
+    sender: &mut Sender<String>,
+) -> Result<String, anyhow::Error> {
     let mel_len = features.len();
     let device = &Device::new_metal(0).unwrap();
     let mel = Tensor::from_vec(
@@ -43,9 +47,9 @@ pub fn transcribe(features: Vec<f32>, files: WhisperFiles, sender: &mut Sender<S
     )?;
     let segments = dc.run(&mel)?;
     let all = segments
-    .iter()
-    .map(|s| s.transcription())
-    .collect::<String>();
+        .iter()
+        .map(|s| s.transcription())
+        .collect::<String>();
     sender.try_send(all.clone()).unwrap();
     Ok(all)
 }
