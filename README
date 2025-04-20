@@ -36,13 +36,15 @@ and quickly get back an accurate text transcription of their query in the search
 1. Codec: libopus
 
 ### Todo
-* Add a test for mono and a test for stereo
-* Use candle's pcm to MEL
-* get a bunch of webm data and write tests for them.  They should be more in the 5-10 second range.
+* Really refactor the transcription
+* finish writing transcription tests (at least one mono and one stereo per language).
 * add a rust test for the case when a binary blob is sent via the websocket
 * remove the ability to send text over the websocket
 * transcribe the binary blob that is sent over the websocket
-* persist the model, config, and tokenizer on disk.  Populate them on startup if not present.  Add a way to refresh them (a binary?).
+* persist the model, config, and tokenizer on disk.  Populate them on startup if not present.  Add a way to refresh them (a binary?). -- maybe this is already happening?
+* ci
+* don't wait for all the segments to finish, start responding as soon as a segment is done.  I think this will involve a mpsc channel?
+* extract configuration options into their own file, maybe do some tuning!
 
 ### Mermaid
 
