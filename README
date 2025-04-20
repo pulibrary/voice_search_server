@@ -40,6 +40,7 @@ and quickly get back an accurate text transcription of their query in the search
 * Really refactor the transcription
 * finish writing transcription tests (at least one mono and one stereo per language).
 * persist the model, config, and tokenizer on disk.  Populate them on startup if not present.  Definitely populate them before running the test suite (https://stackoverflow.com/a/58006287 perhaps?). Add a way to refresh them (a binary?). -- maybe this is already happening?
+* don't hardcode metal!
 * ci
 * don't wait for all the segments to finish, start responding as soon as a segment is done.  I think this will involve a mpsc channel?
 * extract configuration options into their own file, maybe do some tuning!

@@ -16,7 +16,6 @@ use tokenizers::Tokenizer;
 
 pub fn transcribe(features: Vec<f32>, files: WhisperFiles) -> Result<String, anyhow::Error> {
     let mel_len = features.len();
-    // TODO: Don't hardcode metal!!
     let device = &Device::new_metal(0).unwrap();
     let mel = Tensor::from_vec(
         features,
@@ -25,20 +24,20 @@ pub fn transcribe(features: Vec<f32>, files: WhisperFiles) -> Result<String, any
             files.config().num_mel_bins,
             mel_len / files.config().num_mel_bins,
         ),
-        &device,
+        device,
     )?;
 
     let vb = candle_transformers::quantized_var_builder::VarBuilder::from_gguf(
         &files.weights_filename,
-        &device,
+        device,
     )?;
-    let mut model = quantized_model::Whisper::load(&vb, files.config())?;
+    let model = quantized_model::Whisper::load(&vb, files.config())?;
 
     let mut dc = Decoder::new(
         model,
         files.tokenizer(),
         0,
-        &device,
+        device,
         None, // TODO: optionally pass in a language token
     )?;
     let segments = dc.run(&mel)?;
@@ -237,7 +236,7 @@ impl Decoder {
 
 pub fn token_id(tokenizer: &Tokenizer, token: &str) -> Result<u32, anyhow::Error> {
     match tokenizer.token_to_id(token) {
-        None => return Err(anyhow!("no token-id for {token}")),
+        None => Err(anyhow!("no token-id for {token}")),
         Some(id) => Ok(id),
     }
 }

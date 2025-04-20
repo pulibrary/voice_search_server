@@ -29,8 +29,8 @@ pub fn download() -> Result<WhisperFiles, Error> {
         "main".to_owned(),
     ));
     Ok(WhisperFiles {
-        config_filename: repo.get(&format!("config.json")).unwrap(),
-        tokenizer_filename: repo.get(&format!("tokenizer.json")).unwrap(),
-        weights_filename: repo.get(&format!("model.gguf")).unwrap(),
+        config_filename: repo.get("config.json").unwrap(),
+        tokenizer_filename: repo.get("tokenizer.json").unwrap(),
+        weights_filename: repo.get("model.gguf").unwrap(),
     })
 }

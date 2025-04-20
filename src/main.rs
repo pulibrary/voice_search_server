@@ -57,7 +57,7 @@ mod tests {
 
     use super::*;
     use actix_http::ws;
-    use actix_test;
+    
     use actix_web::{App, web::Bytes};
     use futures_util::SinkExt as _;
 
