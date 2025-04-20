@@ -1,14 +1,18 @@
 // This module is responsible for transcribing!
 
+use crate::whisper::WhisperFiles;
+use anyhow::anyhow;
 use candle_core::{Device, IndexOp, Tensor};
 use candle_nn::ops::softmax;
-use candle_transformers::models::whisper::{quantized_model::{self, Whisper}, COMPRESSION_RATIO_THRESHOLD, EOT_TOKEN, HOP_LENGTH, LOGPROB_THRESHOLD, NO_SPEECH_THRESHOLD, NO_SPEECH_TOKENS, NO_TIMESTAMPS_TOKEN, N_FRAMES, SAMPLE_RATE, SOT_TOKEN, TEMPERATURES, TRANSCRIBE_TOKEN};
-use rand::{distr::Distribution, SeedableRng};
+use candle_transformers::models::whisper::{
+    COMPRESSION_RATIO_THRESHOLD, EOT_TOKEN, HOP_LENGTH, LOGPROB_THRESHOLD, N_FRAMES,
+    NO_SPEECH_THRESHOLD, NO_SPEECH_TOKENS, NO_TIMESTAMPS_TOKEN, SAMPLE_RATE, SOT_TOKEN,
+    TEMPERATURES, TRANSCRIBE_TOKEN,
+    quantized_model::{self, Whisper},
+};
 use rand::distr::weighted::WeightedIndex;
+use rand::{SeedableRng, distr::Distribution};
 use tokenizers::Tokenizer;
-use anyhow::anyhow;
-use crate::whisper::WhisperFiles;
-
 
 pub fn transcribe(features: Vec<f32>, files: WhisperFiles) -> Result<String, anyhow::Error> {
     let mel_len = features.len();
@@ -16,10 +20,14 @@ pub fn transcribe(features: Vec<f32>, files: WhisperFiles) -> Result<String, any
     let device = &Device::new_metal(0).unwrap();
     let mel = Tensor::from_vec(
         features,
-        (1, files.config().num_mel_bins, mel_len / files.config().num_mel_bins), 
+        (
+            1,
+            files.config().num_mel_bins,
+            mel_len / files.config().num_mel_bins,
+        ),
         &device,
     )?;
-    
+
     let vb = candle_transformers::quantized_var_builder::VarBuilder::from_gguf(
         &files.weights_filename,
         &device,
@@ -34,7 +42,10 @@ pub fn transcribe(features: Vec<f32>, files: WhisperFiles) -> Result<String, any
         None, // TODO: optionally pass in a language token
     )?;
     let segments = dc.run(&mel)?;
-    Ok(segments.iter().map(|s|s.transcription()).collect::<String>())
+    Ok(segments
+        .iter()
+        .map(|s| s.transcription())
+        .collect::<String>())
 }
 
 // The following is all copy/pasted from https://github.com/vberthet/candle/blob/rocm/candle-examples/examples/whisper/main.rs
@@ -67,8 +78,7 @@ impl Decoder {
         // https://github.com/openai/whisper/blob/e8622f9afc4eba139bf796c210f5c01081000472/whisper/decoding.py#L452
         let suppress_tokens: Vec<f32> = (0..model.config.vocab_size as u32)
             .map(|i| {
-                if model.config.suppress_tokens.contains(&i)
-                {
+                if model.config.suppress_tokens.contains(&i) {
                     f32::NEG_INFINITY
                 } else {
                     0f32
@@ -102,7 +112,7 @@ impl Decoder {
 
     fn decode(&mut self, mel: &Tensor, t: f64) -> Result<DecodingResult, anyhow::Error> {
         let model = &mut self.model;
-        let audio_features =  model.encoder.forward(mel, true)?;
+        let audio_features = model.encoder.forward(mel, true)?;
         let sample_len = model.config.max_target_positions / 2;
         let mut sum_logprob = 0f64;
         let mut no_speech_prob = f64::NAN;
@@ -131,7 +141,8 @@ impl Decoder {
 
             let (_, seq_len, _) = ys.dims3()?;
             let logits = model
-                .decoder.final_linear(&ys.i((..1, seq_len - 1..))?)?
+                .decoder
+                .final_linear(&ys.i((..1, seq_len - 1..))?)?
                 .i(0)?
                 .i(0)?;
 
@@ -159,7 +170,10 @@ impl Decoder {
             }
             sum_logprob += prob.ln();
         }
-        let text = self.tokenizer.decode(&tokens, true).map_err(anyhow::Error::msg)?;
+        let text = self
+            .tokenizer
+            .decode(&tokens, true)
+            .map_err(anyhow::Error::msg)?;
         let avg_logprob = sum_logprob / tokens.len() as f64;
 
         Ok(DecodingResult {
@@ -223,7 +237,7 @@ impl Decoder {
 
 pub fn token_id(tokenizer: &Tokenizer, token: &str) -> Result<u32, anyhow::Error> {
     match tokenizer.token_to_id(token) {
-        None => { return Err(anyhow!("no token-id for {token}")) },
+        None => return Err(anyhow!("no token-id for {token}")),
         Some(id) => Ok(id),
     }
 }
@@ -238,7 +252,6 @@ struct DecodingResult {
     temperature: f64,
     compression_ratio: f64,
 }
-
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -269,8 +282,50 @@ mod tests {
     }
 
     #[test]
+    fn it_can_transcribe_english_mono() {
+        let transcription = transcribe_file("./test_data/english/alexander_the_great_mono.webm");
+        assert!(transcription.contains("an alphabet of history"));
+        // It gets the author's name wrong
+        // assert!(transcription.contains("wilbur d. nesbit"));
+        assert!(transcription.contains("alexander the great"));
+    }
+
+    #[test]
+    fn it_can_transcribe_english_stereo() {
+        let transcription = transcribe_file("./test_data/english/lifes_tragedy_mono.webm");
+        assert!(transcription.contains("life's tragedy"));
+        assert!(transcription.contains("by paul"));
+        // It does not get the author correct
+        // assert!(transcription.contains("by paul laurence dunbar"));
+    }
+
+    #[test]
+    fn it_can_transcribe_english_title_about_cheese() {
+        let transcription =
+            transcribe_file("./test_data/english/complete_book_of_cheese_mono.webm");
+        assert!(transcription.contains("the complete book of cheese"));
+        assert!(transcription.contains("by robert carlton brown"));
+    }
+
+    #[test]
+    fn it_can_transcribe_english_title_about_tragedy() {
+        let transcription =
+            transcribe_file("./test_data/english/complete_book_of_cheese_mono.webm");
+        assert!(transcription.contains("the complete book of cheese"));
+        assert!(transcription.contains("by robert carlton brown"));
+    }
+
+    #[test]
+    fn it_can_transcribe_english_title_long_arm() {
+        let transcription = transcribe_file("./test_data/english/long_arm_mono.webm");
+        assert!(transcription.contains("the long arm"));
+        assert!(transcription.contains("by richard harding davis"));
+    }
+
+    #[test]
     fn it_can_transcribe_portuguese_mono() {
-        let transcription = transcribe_file("./test_data/portuguese/semana_de_arte_moderna_mono.webm");
+        let transcription =
+            transcribe_file("./test_data/portuguese/semana_de_arte_moderna_mono.webm");
         assert!(transcription.contains("sessão 2"));
         assert!(transcription.contains("semana de arte moderna de 1922"));
         assert!(transcription.contains("coletânea centenário"));
@@ -286,7 +341,8 @@ mod tests {
 
     #[test]
     fn it_can_transcribe_russian_mono() {
-        let transcription = transcribe_file("./test_data/russian/po_nedele_ni_slova_ni_s_kem_ne_skazhu_mono.webm");
+        let transcription =
+            transcribe_file("./test_data/russian/po_nedele_ni_slova_ni_s_kem_ne_skazhu_mono.webm");
         // Currently, it is combining По неделе into понеделье
         // assert!(transcription.contains("По неделе ни слова ни с кем не скажу"))
         assert!(transcription.contains("ни слова ни с кем не скажу"));
@@ -294,7 +350,8 @@ mod tests {
 
     #[test]
     fn it_can_transcribe_russian_stereo() {
-        let transcription = transcribe_file("./test_data/russian/vseobshchaia_deklaratsiia_prav_cheloveka.webm");
+        let transcription =
+            transcribe_file("./test_data/russian/vseobshchaia_deklaratsiia_prav_cheloveka.webm");
         assert!(transcription.contains("всеобщая декларация прав человека"));
         assert!(transcription.contains("принята и провозглашена резолюцией 217а"));
         assert!(transcription.contains("генеральной ассамблеи от 10 декабря 1948 года"));

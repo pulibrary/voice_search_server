@@ -110,7 +110,9 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn it_can_pcm_decode_sample_rate_of_48_MHz() {
-        let file = File::open("./test_data/russian/po_nedele_ni_slova_ni_s_kem_ne_skazhu_mono.webm").unwrap();
+        let file =
+            File::open("./test_data/russian/po_nedele_ni_slova_ni_s_kem_ne_skazhu_mono.webm")
+                .unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
         assert!(samples.len() > 40_000);
         assert_eq!(rate, 48_000);
