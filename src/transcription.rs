@@ -10,11 +10,12 @@ use candle_transformers::models::whisper::{
     TEMPERATURES, TRANSCRIBE_TOKEN,
     quantized_model::{self, Whisper},
 };
+use futures::channel::mpsc::Sender;
 use rand::distr::weighted::WeightedIndex;
 use rand::{SeedableRng, distr::Distribution};
 use tokenizers::Tokenizer;
 
-pub fn transcribe(features: Vec<f32>, files: WhisperFiles) -> Result<String, anyhow::Error> {
+pub fn transcribe(features: Vec<f32>, files: WhisperFiles, sender: &mut Sender<String>) -> Result<String, anyhow::Error> {
     let mel_len = features.len();
     let device = &Device::new_metal(0).unwrap();
     let mel = Tensor::from_vec(
@@ -41,10 +42,12 @@ pub fn transcribe(features: Vec<f32>, files: WhisperFiles) -> Result<String, any
         None, // TODO: optionally pass in a language token
     )?;
     let segments = dc.run(&mel)?;
-    Ok(segments
-        .iter()
-        .map(|s| s.transcription())
-        .collect::<String>())
+    let all = segments
+    .iter()
+    .map(|s| s.transcription())
+    .collect::<String>();
+    sender.try_send(all.clone()).unwrap();
+    Ok(all)
 }
 
 // The following is all copy/pasted from https://github.com/vberthet/candle/blob/rocm/candle-examples/examples/whisper/main.rs
@@ -268,6 +271,8 @@ impl Segment {
 
 #[cfg(test)]
 mod tests {
+    use futures::channel::mpsc::channel;
+
     use super::*;
     use crate::{audio, feature_extraction::extract_features, whisper::download};
     use std::fs::File;
@@ -277,7 +282,9 @@ mod tests {
         let (samples, rate) = audio::pcm_decode(file).unwrap();
         let features = extract_features(samples).unwrap();
         let files = download().unwrap();
-        transcribe(features, files).unwrap().to_lowercase()
+        let (mut sender, mut receiver) = channel(5);
+        let _ = transcribe(features, files, &mut sender);
+        receiver.try_next().unwrap().unwrap().to_lowercase()
     }
 
     #[test]

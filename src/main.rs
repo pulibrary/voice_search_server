@@ -1,6 +1,7 @@
 use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, middleware::Logger, rt, web};
 use actix_ws::AggregatedMessage;
 use env_logger::Env;
+use futures::channel::mpsc::channel;
 use futures_util::StreamExt as _;
 use std::io::Cursor;
 mod audio;
@@ -24,8 +25,10 @@ async fn websocket_server(req: HttpRequest, stream: web::Payload) -> Result<Http
                     let (samples, rate) = audio::pcm_decode(Cursor::new(bin)).unwrap();
                     let features = feature_extraction::extract_features(samples).unwrap();
                     let files = whisper::download().unwrap();
-                    let transcription = transcription::transcribe(features, files).unwrap();
-                    log::info!("HI EVERYONE I TRANSCRIBED!!! {}", transcription);
+                    let (mut sender, mut receiver) = channel(5);
+                    let _ = transcription::transcribe(features, files, &mut sender);
+                    let transcription = receiver.try_next().unwrap().unwrap();
+                    log::info!("Transcription complete: {}", transcription);
                     session.text(transcription).await.unwrap();
                 }
                 Err(err) => {

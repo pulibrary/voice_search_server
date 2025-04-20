@@ -3754,6 +3754,7 @@ dependencies = [
  "candle-nn",
  "candle-transformers",
  "env_logger",
+ "futures",
  "futures-util",
  "hf-hub",
  "log",
