@@ -7,38 +7,30 @@
         <div id="errors"></div>
     </body>
     <script>
-const canvas = document.querySelector("canvas");
-const stream = canvas.captureStream(25);
-const recordedChunks = [];
-
-const options = { mimeType: "audio/webm" };
-const mediaRecorder = new MediaRecorder(stream, options);
-
-setTimeout(() => {
-  document.getElementById('status').textContent = 'Done recording';
-  mediaRecorder.stop();
-}, 6_000);
-
-function connect() {
+function connect(mediaRecorder) {
     const voiceSearchServer = new WebSocket('ws://localhost:7025');
     voiceSearchServer.addEventListener('error', () => {
         document.getElementById('errors').textContent = 'Error: could not connect to the websocket.  Did you run cargo run?';
         return;
     });
+    mediaRecorder.addEventListener('dataavailable', (e) => voiceSearchServer.send(e.data) );
     voiceSearchServer.addEventListener('open', () => {
-        mediaRecorder.ondataavailable = (event) => {
-            const data = [];
-            data.push(event.data);
-            voiceSearchServer.send(new Blob(data, {
-                type: "audio/webm",
-            }))
-        };
         mediaRecorder.start();
     });
     voiceSearchServer.addEventListener('message', (event) => {
         document.getElementById('received').textContent += ` ${event.data} `;
     })
 }
-connect();
+navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+    const options = { mimeType: 'video/webm' };
+    const mediaRecorder = new MediaRecorder(stream, options);
+
+    setTimeout(() => {
+        document.getElementById('status').textContent = 'Done recording';
+        mediaRecorder.stop();
+        stream.getTracks().forEach(track => track.stop())
+    }, 6_000);
+    connect(mediaRecorder);
+});
     </script>
 </html>

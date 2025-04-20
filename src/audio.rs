@@ -62,7 +62,7 @@ pub fn pcm_decode(original: impl MediaSource + 'static) -> Result<(Vec<f32>, u32
 
 fn demux(original: impl MediaSource + 'static) -> Result<Track> {
     let stream = MediaSourceStream::new(Box::new(original), Default::default());
-    let reader = MkvReader::try_new(stream, &Default::default()).unwrap();
+    let reader = MkvReader::try_new(stream, &Default::default())?;
     let first_track_option = reader
         .tracks()
         .iter()
@@ -87,7 +87,7 @@ fn demux(original: impl MediaSource + 'static) -> Result<Track> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
+    use std::{fs::File, io::Cursor};
 
     use super::*;
 
@@ -124,6 +124,15 @@ mod tests {
         let file = File::open("./test_data/russian/voron_mono_8MHz.webm").unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
         assert_eq!(rate, 8_000);
+    }
+
+    #[test]
+    fn it_can_pcm_decode_a_cursor() {
+        let binary_data =
+            std::fs::read("./test_data/english/alexander_the_great_mono.webm").unwrap();
+        let cursor = Cursor::new(binary_data);
+        let (samples, rate) = pcm_decode(cursor).unwrap();
+        assert_eq!(rate, 12_000);
     }
 
     #[test]
