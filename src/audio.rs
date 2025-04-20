@@ -127,6 +127,23 @@ mod tests {
     }
 
     #[test]
+    fn it_can_decode_webm_recorded_in_firefox() {
+        // This file is in bad shape, `mkvalidator test_data/firefox.webm` returns pages of errors!
+        // I got it using the MediaRecorder API in firefox on a mac
+        // Some players are able to handle it, interestingly.
+        let file = File::open("./test_data/firefox.webm").unwrap();
+        let (samples, rate) = pcm_decode(file).unwrap();
+        assert_eq!(rate, 48_000);
+    }
+
+    #[test]
+    fn it_can_decode_webm_recorded_in_edge() {
+        let file = File::open("./test_data/edge.webm").unwrap();
+        let (samples, rate) = pcm_decode(file).unwrap();
+        assert_eq!(rate, 48_000);
+    }
+
+    #[test]
     fn it_can_pcm_decode_a_cursor() {
         let binary_data =
             std::fs::read("./test_data/english/alexander_the_great_mono.webm").unwrap();
