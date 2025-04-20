@@ -28,14 +28,14 @@ struct Track {
 
 impl Track {
     pub fn decode(&mut self) -> Result<(Vec<f32>, u32)> {
-        // Sample rate must be 8, 12, 16, 24, or 48 kHz.  The libopus documentation recommends 48.
+        // Sample rate must be 8, 12, 16, 24, or 48 kHz.  The libopus documentation recommends 48, but lower sample rates seemed to provide more accurate transcriptions?
         // Note that the sample rate of a file from the browser may not be one of the rates supported
         // by libopus.  When using the browser's MediaRecorder API, you can pass in a custom sample
         // rate, and the default rate "is adaptive, depending upon the sample rate and the number of channels."
         // See:
         //  * https://opus-codec.org/docs/opus_api-1.5.pdf
         //  * https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/MediaRecorder#audiobitspersecond
-        let mut decoder = Decoder::new(48_000, self.channels).unwrap();
+        let mut decoder = Decoder::new(8_000, self.channels).unwrap();
 
         let mut pcm_data = Vec::new();
         while let Ok(packet) = self.reader.next_packet() {
@@ -92,11 +92,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_can_pcm_decode() {
-        let file = File::open("./test_data/opus.webm").unwrap();
+    fn it_can_pcm_decode_mono() {
+        let file = File::open("./test_data/portuguese/semana_de_arte_moderna_mono.webm").unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
         assert!(samples.len() > 100_000);
+        assert_eq!(rate, 24_000);
+    }
+
+    #[test]
+    fn it_can_pcm_decode_stereo() {
+        let file = File::open("./test_data/portuguese/a_filha_do_patrao_stereo.webm").unwrap();
+        let (samples, rate) = pcm_decode(file).unwrap();
+        assert!(samples.len() > 40_000);
+        assert_eq!(rate, 24_000);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn it_can_pcm_decode_sample_rate_of_48_MHz() {
+        let file = File::open("./test_data/russian/po_nedele_ni_slova_ni_s_kem_ne_skazhu_mono.webm").unwrap();
+        let (samples, rate) = pcm_decode(file).unwrap();
+        assert!(samples.len() > 40_000);
         assert_eq!(rate, 48_000);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn it_can_pcm_decode_sample_rate_of_8_MHz() {
+        let file = File::open("./test_data/russian/voron_mono_8MHz.webm").unwrap();
+        let (samples, rate) = pcm_decode(file).unwrap();
+        assert_eq!(rate, 8_000);
     }
 
     #[test]

@@ -1,3 +1,11 @@
+## Voice Search Server
+
+A websockets server that provides transcription of short spoken webm audio
+via the [Whisper model](https://openai.com/index/whisper/).
+
+The use case is for a user to speak a search query into their browser
+and quickly get back an accurate text transcription of their query in the search box.
+
 ### Setup
 
 1. Install rust
@@ -8,14 +16,33 @@
 1. Run: `ruby -run -e httpd . -p 7020`
 1. In your browser, go to http://localhost:7020/test_client.html
 
+### Creating your own recording
+
+1. Run: `ruby -run -e httpd . -p 7020`
+1. In Chrome, go to http://localhost:7020/quick_record.html
+1. Start microphone
+1. Start recording.  When prompted, put your recording in the test_data directory
+1. Stop recording
+1. Stop microphone
+
+### Creating a webm recording from an existing recording (e.g. a librivox)
+
+1. Open the recording in audacity
+1. Clip/modify the recording as needed
+1. File -> Export Audio
+1. Format: Custom FFmpeg Export
+1. Open custom FFmpeg format options
+1. Format: webm
+1. Codec: libopus
+
 ### Todo
 * Add a test for mono and a test for stereo
-* Get some realistic webm files with vorbis encoding that might come from a browser.  Make sure they actually pass the test :-/
 * Use candle's pcm to MEL
 * get a bunch of webm data and write tests for them.  They should be more in the 5-10 second range.
 * add a rust test for the case when a binary blob is sent via the websocket
 * remove the ability to send text over the websocket
 * transcribe the binary blob that is sent over the websocket
+* persist the model, config, and tokenizer on disk.  Populate them on startup if not present.  Add a way to refresh them (a binary?).
 
 ### Mermaid
 
