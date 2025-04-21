@@ -10,6 +10,7 @@ and quickly get back an accurate text transcription of their query in the search
 
 1. Install rust
 1. `brew install cmake pkgconf opus`
+1. `cargo run` to start locally
 
 ### Tests
 
@@ -19,7 +20,7 @@ parallel threads to avoid freezing the rest of your computer
 while the test suite is running:
 
 ```
-RUST_TEST_THREADS=4 cargo test
+RUST_TEST_THREADS=3 cargo test
 ```
 
 ### Basic client for testing
