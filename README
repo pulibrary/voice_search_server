@@ -11,6 +11,17 @@ and quickly get back an accurate text transcription of their query in the search
 1. Install rust
 1. `brew install cmake pkgconf opus`
 
+### Tests
+
+The inference tests are quite greedy with
+system resources.  You may wish to limit the number of
+parallel threads to avoid freezing the rest of your computer
+while the test suite is running:
+
+```
+RUST_TEST_THREADS=4 cargo test
+```
+
 ### Basic client for testing
 
 1. Run: `ruby -run -e httpd . -p 7020`

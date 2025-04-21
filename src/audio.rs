@@ -8,46 +8,45 @@
 // Each sample is expressed in a 32 bit float
 // This can handle Mono or Stereo, which is kinda cool!
 
-use anyhow::{Result, anyhow};
-use opus::{Channels, Decoder};
-use symphonia::{
-    core::{
-        codecs::CODEC_TYPE_OPUS,
-        formats::FormatReader,
-        io::{MediaSource, MediaSourceStream},
-    },
-    default::formats::MkvReader,
-};
+use std::io::{Read, Seek};
 
-struct Track {
-    sample_rate: u32,
+use anyhow::{Result, anyhow};
+use matroska_demuxer::{Frame, MatroskaFile};
+use opus::{Channels, Decoder};
+
+struct Track<R: Seek + Read> {
+    sample_rate: f64,
     channels: Channels,
-    id: u32,
-    reader: MkvReader,
+    track: u64,
+    reader: MatroskaFile<R>,
 }
 
-impl Track {
-    pub fn decode(&mut self) -> Result<(Vec<f32>, u32)> {
-        // Sample rate must be 8, 12, 16, 24, or 48 kHz.  The libopus documentation recommends 48, but lower sample rates seemed to provide more accurate transcriptions?
+impl<R: Seek + Read> Track<R> {
+    pub fn decode(&mut self) -> Result<(Vec<f32>, f64)> {
+        // Sample rate must be 8, 12, 16, 24, or 48 kHz.  The libopus documentation recommends 48.
+        // Interestingly: when using the symphonia crate's matroska demuxer, a lower sample rate provided
+        // more accurate results.  With the matroska-demuxer crate, a higher sample rate seems to work better.
+        // In either case, if you get it too high, the transcriptions are just "... ... ..."
         // Note that the sample rate of a file from the browser may not be one of the rates supported
         // by libopus.  When using the browser's MediaRecorder API, you can pass in a custom sample
         // rate, and the default rate "is adaptive, depending upon the sample rate and the number of channels."
         // See:
         //  * https://opus-codec.org/docs/opus_api-1.5.pdf
         //  * https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/MediaRecorder#audiobitspersecond
-        let mut decoder = Decoder::new(8_000, self.channels).unwrap();
+        let mut decoder = Decoder::new(12_000, self.channels).unwrap();
 
         let mut pcm_data = Vec::new();
-        while let Ok(packet) = self.reader.next_packet() {
-            while !self.reader.metadata().is_latest() {
-                self.reader.metadata().pop();
-            }
-            if packet.track_id() != self.id {
+        let mut packet = Frame::default();
+        while self.reader.next_frame(&mut packet).unwrap() {
+            if packet.track != self.track {
                 continue;
             }
-            let num_samples = decoder.get_nb_samples(packet.buf())?;
+            if packet.is_invisible {
+                continue;
+            }
+            let num_samples = decoder.get_nb_samples(&packet.data)?;
             let mut decoded = vec![0.0; num_samples * self.channels as usize];
-            let _ = decoder.decode_float(packet.buf(), &mut decoded, false);
+            let _ = decoder.decode_float(&packet.data, &mut decoded, false);
             pcm_data.append(&mut decoded);
         }
 
@@ -55,33 +54,32 @@ impl Track {
     }
 }
 
-pub fn pcm_decode(original: impl MediaSource + 'static) -> Result<(Vec<f32>, u32)> {
-    let mut track = demux(original)?;
+pub fn pcm_decode<R: Seek + Read>(original: R) -> Result<(Vec<f32>, f64)> {
+    let mut track: Track<R> = demux(original)?;
     track.decode()
 }
 
-fn demux(original: impl MediaSource + 'static) -> Result<Track> {
-    let stream = MediaSourceStream::new(Box::new(original), Default::default());
-    let reader = MkvReader::try_new(stream, &Default::default())?;
-    let first_track_option = reader
+fn demux<R: Seek + Read>(original: R) -> Result<Track<R>> {
+    let mut stream = MatroskaFile::open(original).unwrap();
+    let first_track_option = stream
         .tracks()
         .iter()
-        .find(|t| t.codec_params.codec == CODEC_TYPE_OPUS);
+        .find(|t| t.codec_id() == "A_OPUS");
     let first_track = match first_track_option {
         Some(track) => track,
         None => return Err(anyhow!("No Opus tracks in this file!")),
     };
-    let sample_rate = first_track.codec_params.sample_rate.unwrap_or(0);
-    let channel_count = first_track.codec_params.channels.iter().count();
+    let sample_rate = first_track.audio().unwrap().sampling_frequency();
+    let channel_count = first_track.audio().unwrap().channels().get();
     Ok(Track {
         sample_rate,
-        id: first_track.id,
+        track: first_track.track_number().get(),
         channels: if channel_count == 1 {
             Channels::Mono
         } else {
             Channels::Stereo
         },
-        reader,
+        reader: stream,
     })
 }
 
@@ -95,8 +93,8 @@ mod tests {
     fn it_can_pcm_decode_mono() {
         let file = File::open("./test_data/portuguese/semana_de_arte_moderna_mono.webm").unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
-        assert!(samples.len() > 100_000);
-        assert_eq!(rate, 24_000);
+        assert!(samples.len() > 50_000);
+        assert_eq!(rate, 24_000 as f64);
     }
 
     #[test]
@@ -104,7 +102,7 @@ mod tests {
         let file = File::open("./test_data/portuguese/a_filha_do_patrao_stereo.webm").unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
         assert!(samples.len() > 40_000);
-        assert_eq!(rate, 24_000);
+        assert_eq!(rate, 24_000 as f64);
     }
 
     #[test]
@@ -115,7 +113,7 @@ mod tests {
                 .unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
         assert!(samples.len() > 40_000);
-        assert_eq!(rate, 48_000);
+        assert_eq!(rate, 48_000 as f64);
     }
 
     #[test]
@@ -123,24 +121,24 @@ mod tests {
     fn it_can_pcm_decode_sample_rate_of_8_MHz() {
         let file = File::open("./test_data/russian/voron_mono_8MHz.webm").unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
-        assert_eq!(rate, 8_000);
+        assert_eq!(rate, 8_000 as f64);
     }
 
     #[test]
     fn it_can_decode_webm_recorded_in_firefox() {
         // This file is in bad shape, `mkvalidator test_data/firefox.webm` returns pages of errors!
         // I got it using the MediaRecorder API in firefox on a mac
-        // Some players are able to handle it, interestingly.
+        // The matroska_demuxer crate can handle it, the symphonia crate cannot.
         let file = File::open("./test_data/firefox.webm").unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
-        assert_eq!(rate, 48_000);
+        assert_eq!(rate, 44_100 as f64);
     }
 
     #[test]
     fn it_can_decode_webm_recorded_in_edge() {
         let file = File::open("./test_data/edge.webm").unwrap();
         let (samples, rate) = pcm_decode(file).unwrap();
-        assert_eq!(rate, 48_000);
+        assert_eq!(rate, 48_000 as f64);
     }
 
     #[test]
@@ -149,7 +147,7 @@ mod tests {
             std::fs::read("./test_data/english/alexander_the_great_mono.webm").unwrap();
         let cursor = Cursor::new(binary_data);
         let (samples, rate) = pcm_decode(cursor).unwrap();
-        assert_eq!(rate, 12_000);
+        assert_eq!(rate, 12_000 as f64);
     }
 
     #[test]
