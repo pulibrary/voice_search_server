@@ -220,7 +220,6 @@ impl Decoder {
         let mut seek = 0;
         let mut segments = vec![];
         while seek < content_frames {
-            let start = std::time::Instant::now();
             let time_offset = (seek * HOP_LENGTH) as f64 / SAMPLE_RATE as f64;
             let segment_size = usize::min(content_frames - seek, N_FRAMES);
             let mel_segment = mel.narrow(2, seek, segment_size)?;
@@ -283,7 +282,7 @@ mod tests {
 
     fn transcribe_file(path: &str) -> String {
         let file = File::open(path).unwrap();
-        let (samples, rate) = audio::pcm_decode(file).unwrap();
+        let (samples, _) = audio::pcm_decode(file).unwrap();
         let features = extract_features(samples).unwrap();
         let files = download().unwrap();
         let (mut sender, mut receiver) = channel(5);

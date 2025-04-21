@@ -56,7 +56,7 @@ RUST_TEST_THREADS=3 cargo test
 * persist the model, config, and tokenizer on disk.  Populate them on startup if not present.  Definitely populate them before running the test suite (https://stackoverflow.com/a/58006287 perhaps?). Add a way to refresh them (a binary?). -- maybe this is already happening?
 * don't hardcode metal!
 * ci
-* extract configuration options into their own file, maybe do some tuning!
+* extract more config options into config.rs
 
 ### Mermaid
 

@@ -5,6 +5,7 @@ use futures::channel::mpsc::channel;
 use futures_util::StreamExt as _;
 use std::io::Cursor;
 mod audio;
+mod config;
 mod feature_extraction;
 mod transcription;
 mod whisper;
@@ -22,7 +23,7 @@ async fn websocket_server(req: HttpRequest, stream: web::Payload) -> Result<Http
             match msg {
                 Ok(AggregatedMessage::Binary(bin)) => {
                     log::info!("Received binary websocket message");
-                    let (samples, rate) = audio::pcm_decode(Cursor::new(bin)).unwrap();
+                    let (samples, _) = audio::pcm_decode(Cursor::new(bin)).unwrap();
                     let features = feature_extraction::extract_features(samples).unwrap();
                     let files = whisper::download().unwrap();
                     let (mut sender, mut receiver) = channel(5);
