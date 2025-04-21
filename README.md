@@ -58,8 +58,6 @@ RUST_TEST_THREADS=3 cargo test
 * Really refactor the transcription
 * finish writing transcription tests (at least one mono and one stereo per language).
 * persist the model, config, and tokenizer on disk.  Populate them on startup if not present.  Definitely populate them before running the test suite (https://stackoverflow.com/a/58006287 perhaps?). Add a way to refresh them (a binary?). -- maybe this is already happening?
-* don't hardcode metal!
-* ci
 * extract more config options into config.rs
 
 ### Mermaid

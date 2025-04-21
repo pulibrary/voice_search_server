@@ -2,7 +2,7 @@
 
 use crate::{config, whisper_repo::WhisperRepo};
 use anyhow::anyhow;
-use candle_core::{Device, IndexOp, Tensor};
+use candle_core::{utils::{cuda_is_available, metal_is_available}, Device, IndexOp, Tensor};
 use candle_nn::ops::softmax;
 use candle_transformers::models::whisper::{
     COMPRESSION_RATIO_THRESHOLD, EOT_TOKEN, HOP_LENGTH, LOGPROB_THRESHOLD, N_FRAMES,
@@ -15,13 +15,19 @@ use rand::distr::weighted::WeightedIndex;
 use rand::{SeedableRng, distr::Distribution};
 use tokenizers::Tokenizer;
 
+fn device() -> Device {
+    if metal_is_available() { Device::new_metal(0).unwrap() }
+    else if cuda_is_available() { Device::new_cuda(0).unwrap() }
+    else { Device::Cpu }
+}
+
 pub fn transcribe(
     features: Vec<f32>,
     files: WhisperRepo,
     sender: &mut Sender<String>,
 ) -> Result<String, anyhow::Error> {
     let mel_len = features.len();
-    let device = &Device::new_metal(0).unwrap();
+    let device = device();
     let mel = Tensor::from_vec(
         features,
         (
@@ -29,19 +35,19 @@ pub fn transcribe(
             files.config().num_mel_bins,
             mel_len / files.config().num_mel_bins,
         ),
-        device,
+        &device,
     )?;
 
     let vb = candle_transformers::quantized_var_builder::VarBuilder::from_gguf(
         &files.weights_filename,
-        device,
+        &device,
     )?;
     let model = quantized_model::Whisper::load(&vb, files.config())?;
 
     let mut dc = Decoder::new(
         model,
         files.tokenizer(),
-        device,
+        &device,
         None, // TODO: optionally pass in a language token
     )?;
     let segments = dc.run(&mel)?;

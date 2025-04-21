@@ -9,8 +9,6 @@ actix-web = "4"
 actix-ws = "0.3.0"
 anyhow = "1.0.97"
 byteorder = "1.5.0"
-candle-core = { version = "0.8.4", features = ["metal"] }
-candle-nn = { version = "0.8.4", features = ["metal"] }
 candle-transformers = "0.8.4"
 env_logger = "0.11.8"
 futures = "0.3.31"
@@ -23,6 +21,14 @@ rand = "0.9.1"
 serde_json = "1.0.140"
 tokenizers = "0.21.1"
 tokio = { version = "1.44.2", features = ["macros"] }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+candle-core = { version = "0.8.4", features = ["metal"] }
+candle-nn = { version = "0.8.4", features = ["metal"] }
+
+[target.'cfg(not(target_vendor = "apple"))'.dependencies]
+candle-core = { version = "0.8.4" }
+candle-nn = { version = "0.8.4" }
 
 [dev-dependencies]
 actix-http = "3.10.0"
