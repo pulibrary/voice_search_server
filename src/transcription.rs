@@ -1,6 +1,6 @@
 // This module is responsible for transcribing!
 
-use crate::whisper::WhisperFiles;
+use crate::{config, whisper_repo::WhisperRepo};
 use anyhow::anyhow;
 use candle_core::{Device, IndexOp, Tensor};
 use candle_nn::ops::softmax;
@@ -17,7 +17,7 @@ use tokenizers::Tokenizer;
 
 pub fn transcribe(
     features: Vec<f32>,
-    files: WhisperFiles,
+    files: WhisperRepo,
     sender: &mut Sender<String>,
 ) -> Result<String, anyhow::Error> {
     let mel_len = features.len();
@@ -41,7 +41,6 @@ pub fn transcribe(
     let mut dc = Decoder::new(
         model,
         files.tokenizer(),
-        0,
         device,
         None, // TODO: optionally pass in a language token
     )?;
@@ -71,11 +70,9 @@ struct Decoder {
 }
 
 impl Decoder {
-    #[allow(clippy::too_many_arguments)]
     fn new(
         model: Whisper,
         tokenizer: Tokenizer,
-        seed: u64,
         device: &Device,
         language_token: Option<u32>,
     ) -> Result<Self, anyhow::Error> {
@@ -104,7 +101,7 @@ impl Decoder {
         };
         Ok(Self {
             model,
-            rng: rand::rngs::StdRng::seed_from_u64(seed),
+            rng: rand::rngs::StdRng::seed_from_u64(config::SEED),
             tokenizer,
             suppress_tokens,
             sot_token,
@@ -277,7 +274,7 @@ mod tests {
     use futures::channel::mpsc::channel;
 
     use super::*;
-    use crate::{audio, feature_extraction::extract_features, whisper::download};
+    use crate::{audio, feature_extraction::extract_features, whisper_repo::download};
     use std::fs::File;
 
     fn transcribe_file(path: &str) -> String {

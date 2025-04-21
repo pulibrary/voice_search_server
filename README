@@ -1,10 +1,14 @@
 ## Voice Search Server
 
-A websockets server that provides transcription of short spoken webm audio
+An experiment of a websockets server that provides transcription of short spoken webm audio
 via the [Whisper model](https://openai.com/index/whisper/).
 
 The use case is for a user to speak a search query into their browser
 and quickly get back an accurate text transcription of their query in the search box.
+We want to keep these spoken queries private, rather than sending them to a third
+party, to protect our patrons' privacy.
+
+The code is largely based on [the whisper candle example](https://github.com/huggingface/candle/tree/main/candle-examples/examples/whisper)
 
 ### Setup
 

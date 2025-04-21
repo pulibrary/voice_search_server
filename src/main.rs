@@ -8,7 +8,7 @@ mod audio;
 mod config;
 mod feature_extraction;
 mod transcription;
-mod whisper;
+mod whisper_repo;
 
 async fn websocket_server(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
@@ -25,7 +25,7 @@ async fn websocket_server(req: HttpRequest, stream: web::Payload) -> Result<Http
                     log::info!("Received binary websocket message");
                     let (samples, _) = audio::pcm_decode(Cursor::new(bin)).unwrap();
                     let features = feature_extraction::extract_features(samples).unwrap();
-                    let files = whisper::download().unwrap();
+                    let files = whisper_repo::download().unwrap();
                     let (mut sender, mut receiver) = channel(5);
                     let _ = transcription::transcribe(features, files, &mut sender);
                     let transcription = receiver.try_next().unwrap().unwrap();

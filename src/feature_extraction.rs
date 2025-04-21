@@ -1,14 +1,15 @@
 // This module is responsible for extracting MEL features from
-// PCM samples.
+// PCM samples.  This involves a fourier transform and conversion
+// to the logarithmic [Mel scale](https://en.wikipedia.org/wiki/Mel_scale)
 
 use anyhow::Result;
 use candle_transformers::models::whisper::{Config, audio};
 
-use crate::whisper;
+use crate::whisper_repo;
 
 pub fn extract_features(samples: Vec<f32>) -> Result<Vec<f32>, anyhow::Error> {
     let config: Config = serde_json::from_str(
-        &std::fs::read_to_string(whisper::download().unwrap().config_filename).unwrap(),
+        &std::fs::read_to_string(whisper_repo::download().unwrap().config_filename).unwrap(),
     )?;
 
     let mel_bytes = match config.num_mel_bins {
