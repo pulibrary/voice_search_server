@@ -5,11 +5,11 @@
 use anyhow::Result;
 use candle_transformers::models::whisper::{Config, audio};
 
-use crate::whisper_repo;
+use crate::whisper_repo::WhisperRepo;
 
 pub fn extract_features(samples: Vec<f32>) -> Result<Vec<f32>, anyhow::Error> {
     let config: Config = serde_json::from_str(
-        &std::fs::read_to_string(whisper_repo::download().unwrap().config_filename).unwrap(),
+        &std::fs::read_to_string(&WhisperRepo::get().config_file).unwrap(),
     )?;
 
     let mel_bytes = match config.num_mel_bins {

@@ -1,28 +1,34 @@
+use crate::config;
 use anyhow::Error;
 use candle_transformers::models::whisper::Config;
 use hf_hub::{Repo, RepoType, api::sync::Api};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::OnceLock};
 use tokenizers::Tokenizer;
-use crate::config;
+
+pub static WHISPER_REPO: OnceLock<WhisperRepo> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 pub struct WhisperRepo {
-    pub config_filename: PathBuf,
-    pub tokenizer_filename: PathBuf,
-    pub weights_filename: PathBuf,
+    pub config_file: PathBuf,
+    pub tokenizer_file: PathBuf,
+    pub weights_file: PathBuf,
 }
 
 impl WhisperRepo {
     pub fn config(&self) -> Config {
-        serde_json::from_str(&std::fs::read_to_string(&self.config_filename).unwrap()).unwrap()
+        serde_json::from_str(&std::fs::read_to_string(&self.config_file).unwrap()).unwrap()
     }
 
     pub fn tokenizer(&self) -> Tokenizer {
-        Tokenizer::from_file(&self.tokenizer_filename).unwrap()
+        Tokenizer::from_file(&self.tokenizer_file).unwrap()
+    }
+
+    pub fn get() -> &'static WhisperRepo {
+        WHISPER_REPO.get_or_init(|| download().unwrap())
     }
 }
 
-pub fn download() -> Result<WhisperRepo, Error> {
+fn download() -> Result<WhisperRepo, Error> {
     let api = Api::new()?;
     let repo = api.repo(Repo::with_revision(
         config::REPO_ID.to_owned(),
@@ -30,8 +36,8 @@ pub fn download() -> Result<WhisperRepo, Error> {
         "main".to_owned(),
     ));
     Ok(WhisperRepo {
-        config_filename: repo.get("config.json").unwrap(),
-        tokenizer_filename: repo.get("tokenizer.json").unwrap(),
-        weights_filename: repo.get("model.gguf").unwrap(),
+        config_file: repo.get(config::MODEL_CONFIG_FILENAME).unwrap(),
+        tokenizer_file: repo.get(config::TOKENIZER_FILENAME).unwrap(),
+        weights_file: repo.get(config::MODEL_FILENAME).unwrap(),
     })
 }

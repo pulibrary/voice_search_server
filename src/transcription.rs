@@ -2,7 +2,10 @@
 
 use crate::{config, whisper_repo::WhisperRepo};
 use anyhow::anyhow;
-use candle_core::{utils::{cuda_is_available, metal_is_available}, Device, IndexOp, Tensor};
+use candle_core::{
+    Device, IndexOp, Tensor,
+    utils::{cuda_is_available, metal_is_available},
+};
 use candle_nn::ops::softmax;
 use candle_transformers::models::whisper::{
     COMPRESSION_RATIO_THRESHOLD, EOT_TOKEN, HOP_LENGTH, LOGPROB_THRESHOLD, N_FRAMES,
@@ -16,14 +19,17 @@ use rand::{SeedableRng, distr::Distribution};
 use tokenizers::Tokenizer;
 
 fn device() -> Device {
-    if metal_is_available() { Device::new_metal(0).unwrap() }
-    else if cuda_is_available() { Device::new_cuda(0).unwrap() }
-    else { Device::Cpu }
+    if metal_is_available() {
+        Device::new_metal(0).unwrap()
+    } else if cuda_is_available() {
+        Device::new_cuda(0).unwrap()
+    } else {
+        Device::Cpu
+    }
 }
 
 pub fn transcribe(
     features: Vec<f32>,
-    files: WhisperRepo,
     sender: &mut Sender<String>,
 ) -> Result<String, anyhow::Error> {
     let mel_len = features.len();
@@ -32,21 +38,21 @@ pub fn transcribe(
         features,
         (
             1,
-            files.config().num_mel_bins,
-            mel_len / files.config().num_mel_bins,
+            WhisperRepo::get().config().num_mel_bins,
+            mel_len / WhisperRepo::get().config().num_mel_bins,
         ),
         &device,
     )?;
 
     let vb = candle_transformers::quantized_var_builder::VarBuilder::from_gguf(
-        &files.weights_filename,
+        &WhisperRepo::get().weights_file,
         &device,
     )?;
-    let model = quantized_model::Whisper::load(&vb, files.config())?;
+    let model = quantized_model::Whisper::load(&vb, WhisperRepo::get().config())?;
 
     let mut dc = Decoder::new(
         model,
-        files.tokenizer(),
+        WhisperRepo::get().tokenizer(),
         &device,
         None, // TODO: optionally pass in a language token
     )?;
@@ -280,16 +286,15 @@ mod tests {
     use futures::channel::mpsc::channel;
 
     use super::*;
-    use crate::{audio, feature_extraction::extract_features, whisper_repo::download};
+    use crate::{audio, feature_extraction::extract_features};
     use std::fs::File;
 
     fn transcribe_file(path: &str) -> String {
         let file = File::open(path).unwrap();
         let (samples, _) = audio::pcm_decode(file).unwrap();
         let features = extract_features(samples).unwrap();
-        let files = download().unwrap();
         let (mut sender, mut receiver) = channel(5);
-        let _ = transcribe(features, files, &mut sender);
+        let _ = transcribe(features, &mut sender);
         receiver.try_next().unwrap().unwrap().to_lowercase()
     }
 

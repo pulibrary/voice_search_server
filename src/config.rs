@@ -22,6 +22,11 @@ pub const AUDIO_DECODE_SAMPLE_RATE: u32 = 12_000;
 // ---------------------------------
 pub const REPO_ID: &str = "Demonthos/candle-quantized-whisper-large-v3-turbo";
 
+// WEIGHTS_FILENAME should be a gguf file, since they are optimized for inference
+// See: https://huggingface.co/docs/hub/gguf#gguf
+pub const MODEL_FILENAME: &str = "model.gguf";
+pub const TOKENIZER_FILENAME: &str = "tokenizer.json";
+pub const MODEL_CONFIG_FILENAME: &str = "config.json";
 
 // -------------------
 // Inference settings

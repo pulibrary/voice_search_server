@@ -3,6 +3,7 @@ use actix_ws::AggregatedMessage;
 use env_logger::Env;
 use futures::channel::mpsc::channel;
 use futures_util::StreamExt as _;
+use whisper_repo::WhisperRepo;
 use std::io::Cursor;
 mod audio;
 mod config;
@@ -25,9 +26,8 @@ async fn websocket_server(req: HttpRequest, stream: web::Payload) -> Result<Http
                     log::info!("Received binary websocket message");
                     let (samples, _) = audio::pcm_decode(Cursor::new(bin)).unwrap();
                     let features = feature_extraction::extract_features(samples).unwrap();
-                    let files = whisper_repo::download().unwrap();
                     let (mut sender, mut receiver) = channel(5);
-                    let _ = transcription::transcribe(features, files, &mut sender);
+                    let _ = transcription::transcribe(features, &mut sender);
                     let transcription = receiver.try_next().unwrap().unwrap();
                     log::info!("Transcription complete: {}", transcription);
                     session.text(transcription).await.unwrap();
@@ -44,6 +44,7 @@ async fn websocket_server(req: HttpRequest, stream: web::Payload) -> Result<Http
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    WhisperRepo::get();
     env_logger::init_from_env(Env::default().default_filter_or("info"));
     HttpServer::new(|| {
         App::new()
